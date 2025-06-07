@@ -16,43 +16,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 
-typedef union {
-  uint32_t raw;
-  struct {
-    uint8_t  layer;
-  };
-} user_config_t;
+#include "print.h"
+#include "rgb_matrix_map.h"
 
-user_config_t user_config;
+
+#define RGB_CREAM 0xff, 0xfd, 0xd0
 
 enum layers {
     _BL = 0,
-    _GL,      // Gaming layer
-    _PL,      // Programming layer
-    _FN,      // function layer
+    _GL, // Gaming layer
+    _PL, // Programming layer
+    _FN, // function layer
 };
 
 #define D_MUTE RCS(KC_RCBR)
 #define D_DEAF RCS(KC_LCBR)
-
-// // Light LEDs 6 to 9 and 12 to 15 red when caps lock is active. Hard to ignore!
-// const rgblight_segment_t PROGMEM lights_base_layer[] = RGBLIGHT_LAYER_SEGMENTS(
-//     {6, 4, HSV_RED},       // Light 4 LEDs, starting with LED 6
-//     {12, 4, HSV_RED}       // Light 4 LEDs, starting with LED 12
-// );
-// // Light LEDs 9 & 10 in cyan when keyboard layer 1 is active
-// const rgblight_segment_t PROGMEM lights_gaming_layer[] = RGBLIGHT_LAYER_SEGMENTS(
-//     {9, 2, HSV_CYAN}
-// );
-// // Light LEDs 11 & 12 in purple when keyboard layer 2 is active
-// const rgblight_segment_t PROGMEM lights_programming_layer[] = RGBLIGHT_LAYER_SEGMENTS(
-//     {11, 2, HSV_PURPLE}
-// );
-// // Light LEDs 13 & 14 in green when keyboard layer 3 is active
-// const rgblight_segment_t PROGMEM lights_function_layer[] = RGBLIGHT_LAYER_SEGMENTS(
-//     {13, 2, HSV_GREEN}
-// );
-// etc..
 
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -84,7 +62,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_LSFT,          KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH,          KC_RSFT, KC_UP,   KC_END,
         KC_LCTL, KC_LGUI, KC_LALT,                            KC_SPC,                             KC_RALT, MO(_FN), KC_RCTL, KC_LEFT, KC_DOWN, KC_RGHT
     ),
-
     [_GL] = LAYOUT(
         KC_GRV,  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,          _______,
         KC_ESC,  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,          D_MUTE,
@@ -102,89 +79,92 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______, _______, _______,                            _______,                            _______, _______, _______, _______, _______, _______
     ),
     [_FN] = LAYOUT(
-        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,           TO(_FN),
-        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,           TO(_PL),
-        _______, RGB_MOD, RGB_VAI, RGB_SPI, QK_BOOT, EE_CLR,  DB_TOGG, _______, _______, _______, _______, _______, _______, QK_BOOT,           TO(_GL),
-        _______, RGB_RMOD,RGB_VAD, RGB_SPD, _______, _______, _______, _______, _______, _______, _______, _______,          _______, _______,  TO(_BL),
-        RGB_TOG,          RGB_HUI, _______, _______, _______, NK_TOGG, _______, _______, _______, _______, _______,          _______, TO(_BL),  _______,
-        _______, AG_SWAP, AG_NORM,                            _______,                            _______, MO(_FN), _______, _______, TO(_GL)
+        XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,           XXXXXXX,
+        XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,           XXXXXXX,
+        XXXXXXX, RGB_MOD, RGB_VAI, RGB_SPI, QK_BOOT, EE_CLR,  DB_TOGG, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, QK_BOOT,           TO(_PL),
+        XXXXXXX, RGB_RMOD,RGB_VAD, RGB_SPD, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,          XXXXXXX,           TO(_GL),
+        RGB_TOG,          RGB_HUI, XXXXXXX, XXXXXXX, XXXXXXX, NK_TOGG, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,          XXXXXXX, TO(_BL),  TO(_BL),
+        XXXXXXX, AG_SWAP, AG_NORM,                            XXXXXXX,                            XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, TO(_GL),  XXXXXXX
     )
-
-
 };
 // clang-format on
 
-void keyboard_post_init_user(void) {
-  // Call the keymap level matrix init.
+uint8_t base_red = 0x00;
+uint8_t base_grn = 0x00;
+uint8_t base_blu = 0x00;
+uint8_t base_sat = 0xff;
 
-  // Read the user config from EEPROM
-  user_config.raw = eeconfig_read_user();
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    bool color_changed = true;
+    uint8_t current_layer = get_highest_layer(layer_state);
 
-  layer_move(user_config.layer);
+    if (current_layer == _FN && record->event.pressed) {
+        // F10 is red, F11 is green, F12 is blue
+        switch (keycode) {
+            case KC_F10:
+                base_red += 5;
+                break;
+            case KC_F11:
+                base_grn += 5;
+                break;
+            case KC_F12:
+                base_blu += 5;
+                break;
+            default:
+                color_changed = false;
+                break;
+        }
 
-  // debug_enable = true;
-}
+        if (color_changed) {
+            uprintf("Colors: 0x%x 0x%x 0x%x\n", base_red, base_grn, base_blu);
+            return false;
+        }
+    }
+    return true;
+};
 
-layer_state_t layer_state_set_user(layer_state_t state) {
-    uint8_t current_layer = get_highest_layer(state);
+bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    led_t led_state = host_keyboard_led_state();
+    uint8_t current_layer = get_highest_layer(layer_state);
 
-    user_config.layer = current_layer;
-    eeconfig_update_user(user_config.raw);
+    // set entire layer to color
+    rgb_matrix_set_color_all(base_red, base_grn, base_blu);
 
     switch (current_layer) {
-    case _BL:
-        rgblight_sethsv_noeeprom(HSV_MAGENTA);
-        rgblight_mode_noeeprom(1);
-        break;
-    case _GL:
-        rgblight_sethsv_noeeprom(HSV_GREEN);
-        rgblight_mode_noeeprom(1);
-        break;
-    case _PL:
-        rgblight_sethsv_noeeprom(HSV_WHITE);
-        rgblight_mode_noeeprom(1);
-        break;
-    case _FN:
-        rgblight_sethsv_noeeprom(HSV_CYAN);
-        rgblight_mode_noeeprom(1);
-        break;
-    default:
-        break;
+        case _FN:
+            rgb_matrix_set_color(LED_F10, base_red, 0, 0);
+            rgb_matrix_set_color(LED_F11, 0, base_grn, 0);
+            rgb_matrix_set_color(LED_F12, 0, 0, base_blu);
+            rgb_matrix_set_color(LED_HOME, RGB_PURPLE);
+            break;
+        case _PL:
+            rgb_matrix_set_color(LED_PGUP, RGB_PURPLE);
+            break;
+        case _GL:
+            rgb_matrix_set_color(LED_PGDN, RGB_PURPLE);
+            break;
+        case _BL:
+            rgb_matrix_set_color(LED_END, RGB_PURPLE);
+            break;
+        default:
+            break;
     }
-  return state;
-}
 
-#if defined(OS_DETECTION_ENABLE)
-bool process_detected_host_os_kb(os_variant_t detected_os) {
-    if (!process_detected_host_os_user(detected_os)) {
-        return false;
+    // Caps Lock RGB setup
+    if (led_state.caps_lock) {
+        rgb_matrix_set_color(LED_DEL, RGB_RED);
+    } else {
+        rgb_matrix_set_color(LED_DEL, RGB_OFF);
     }
-    switch (detected_os) {
-        case OS_MACOS:
-        case OS_IOS:
-            rgb_matrix_set_color_all(RGB_WHITE);
-            break;
-        case OS_WINDOWS:
-            rgb_matrix_set_color_all(RGB_BLUE);
-            break;
-        case OS_LINUX:
-            rgb_matrix_set_color_all(RGB_ORANGE);
-            break;
-        case OS_UNSURE:
-            rgb_matrix_set_color_all(RGB_RED);
-            break;
-    }
-    
-    return true;
+
+    return false;
 }
-#endif // OS_DETECTION_ENABLE
 
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
-    [_BL] = { ENCODER_CCW_CW(RALT(KC_F14), RSFT(KC_F14)) },
+    [_BL] = { ENCODER_CCW_CW(RALT(KC_F14), RSFT(KC_F14)) }, 
     [_GL] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
     [_PL] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
     [_FN] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) }
 };
 #endif
-
